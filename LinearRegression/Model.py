@@ -103,35 +103,60 @@ class MSE:
         self.grad_y_pred=2*(self.y_true-self.y_pred)*grad_next
 
 
-    class CategoricalCrossEntropy:
-        def __init__(self,num_classes:int):
-            self.num_classes=num_classes
+class CategoricalCrossEntropy:
+    def __init__(self,num_classes:int):
+        self.num_classes=num_classes
 
-            # 暂存梯度
-            self.grad_y_pred=np.zeros((1,num_classes))
+        # 暂存梯度
+        self.grad_y_pred=np.zeros((1,num_classes))
 
-            # 暂存输入输出
-            self.y_pred=None
-            self.y_true=None
+        # 暂存输入输出
+        self.y_pred=None
+        self.y_true=None
 
-        def __call__(self,y_true:np.array,y_pred:np.array):
-            self.y_pred=y_pred
-            self.y_true=y_true
+    def __call__(self,y_true:np.array,y_pred:np.array):
+        self.y_pred=y_pred
+        self.y_true=y_true
 
-            self.output=-np.sum(y_true*np.log(y_pred+1e-15))/self.num_classes
+        self.output=-np.sum(y_true*np.log(y_pred+1e-15))/self.num_classes
 
-            return self.output
+        return self.output
 
-        def backward(self,grad_next:np.array):
-            if grad_next is None:
-                grad_next=np.ones((1,self.num_classes))
-            self.grad_y_pred=1/np.log(self.y_pred+1e-15)/self.num_classes
+    def backward(self,grad_next:np.array):
+        if grad_next is None:
+            grad_next=np.ones((1,self.num_classes))
+        self.grad_y_pred=1/np.log(self.y_pred+1e-15)/self.num_classes
 
 
 
 
 if __name__=="__main__":
+    linear=Linear(2,1)
+    print(f"w:\n{linear.weights}")
+    print(f"b:\n{linear.bias}")
 
+    x=np.array([[3,2]])
+    print(f"x:\n{x}")
+
+    linear(x)
+    print(f"y:\n{linear.output}")
+
+    sigmoid=Sigmoid(1)
+    sigmoid(linear.output)
+    print(f"sigmoid(y):\n{sigmoid.output}")
+
+    mse = MSE()
+    mse(sigmoid.output, np.array([[0.5]]))
+    print(f"mse:\n{mse.output}")
+
+    mse.backward(None)
+    print(f"dmse/ds:\n{mse.grad_y_pred}")
+
+    sigmoid.backward(mse.grad_y_pred)
+    print(f"dmse/dy:\n{sigmoid.grad_input}")
+
+    linear.backward(sigmoid.grad_input)
+    print(f"dmse/dw:\n{linear.grad_w}")
 
 
 
