@@ -45,7 +45,6 @@ class Linear:
             w[i] -= 2*h
             o2 = x @ w + self.bias if self.with_bias else x @ w
 
-            grad=(o1 - o2) / (2 * h)
             self.grad_w[i] += np.squeeze((o1 - o2) / (2 * h))
         self.grad_w *= grad_next
         #print(self.grad_w)
@@ -58,6 +57,10 @@ class Linear:
             self.grad_b += (o1 - o2) / (2 * h)
             print(self.grad_b)
             self.grad_b *= grad_next
+        return self.grad_w
+
+    def get_grad(self):
+        return dict(weights=self.grad_w,bias=self.grad_b)
 
 class Sigmoid:
     def __init__(self,input_size:int):
@@ -79,8 +82,10 @@ class Sigmoid:
     def backward(self,grad_next:np.array):
         if grad_next is None:
             grad_next=np.ones((1,self.output_size))
-        self.grad_input=self.output*(1-self.output)*grad_next
-
+        self.grad_input=self.output*(1-self.output)*grad_next.sum(axis=1)
+        return self.grad_input
+    def get_grad(self):
+        return dict(input=self.grad_input)
 
 class MSE:
     def __init__(self):
@@ -101,6 +106,10 @@ class MSE:
         if grad_next is None:
             grad_next=np.ones((1,1))
         self.grad_y_pred=2*(self.y_true-self.y_pred)*grad_next
+        return self.grad_y_pred
+
+    def get_grad(self):
+        return dict(y_pred=self.grad_y_pred)
 
 
 class CategoricalCrossEntropy:
@@ -126,38 +135,37 @@ class CategoricalCrossEntropy:
         if grad_next is None:
             grad_next=np.ones((1,self.num_classes))
         self.grad_y_pred=1/np.log(self.y_pred+1e-15)/self.num_classes
+        return self.grad_y_pred
+    def get_grad(self):
+        return dict(y_pred=self.grad_y_pred)
 
-
-
+class Model:
+    def __init__(self):
+        self.layers=[]
+    def add(self, *args):
+        for i in args:
+            self.layers.append(i)
+    def forward(self, x: np.array):
+        y=x
+        for layer in self.layers:
+            y=layer(y)
+        return y
+    def backward(self, grad_next: np.array):
+        for layer in reversed(self.layers):
+            grad_next=layer.backward(grad_next)
 
 if __name__=="__main__":
-    linear=Linear(2,1)
-    print(f"w:\n{linear.weights}")
-    print(f"b:\n{linear.bias}")
+    model=Model()
+    model.add(Linear(2,1),Sigmoid(1),Linear(1,1))
+    x=np.array([[5.9,3.8]])
+    y=model.forward(x)
+    model.backward(None)
 
-    x=np.array([[3,2]])
-    print(f"x:\n{x}")
-
-    linear(x)
-    print(f"y:\n{linear.output}")
-
-    sigmoid=Sigmoid(1)
-    sigmoid(linear.output)
-    print(f"sigmoid(y):\n{sigmoid.output}")
-
-    mse = MSE()
-    mse(sigmoid.output, np.array([[0.5]]))
-    print(f"mse:\n{mse.output}")
-
-    mse.backward(None)
-    print(f"dmse/ds:\n{mse.grad_y_pred}")
-
-    sigmoid.backward(mse.grad_y_pred)
-    print(f"dmse/dy:\n{sigmoid.grad_input}")
-
-    linear.backward(sigmoid.grad_input)
-    print(f"dmse/dw:\n{linear.grad_w}")
-
+    # 打印梯度
+    for layer in model.layers:
+        grad=layer.get_grad()
+        for key,value in grad.items():
+            print(key,value)
 
 
 
